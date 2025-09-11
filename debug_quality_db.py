@@ -8,10 +8,20 @@ import sqlite3
 import os
 import pandas as pd
 from datetime import datetime
+from dotenv import load_dotenv
 
 def debug_quality_db():
     """Debug the quality check database"""
-    db_path = os.path.join(os.path.dirname(__file__), 'quality_check.db')
+    load_dotenv()
+    
+    # Get database path from environment variable or fallback to relative path
+    db_path = os.getenv('QUALITY_CHECK_DB')
+    if not db_path:
+        db_path = os.path.join(os.path.dirname(__file__), 'quality_check.db')
+    elif not os.path.isabs(db_path):
+        # If relative path, make it relative to project root
+        project_root = os.getenv('PROJECT_ROOT', os.path.dirname(__file__))
+        db_path = os.path.join(project_root, db_path)
     
     print(f"🔍 Debugging quality check database...")
     print(f"Database path: {db_path}")
@@ -76,7 +86,16 @@ def debug_quality_db():
 
 def clear_quality_db():
     """Clear all records from the quality check database"""
-    db_path = os.path.join(os.path.dirname(__file__), 'quality_check.db')
+    load_dotenv()
+    
+    # Get database path from environment variable or fallback to relative path
+    db_path = os.getenv('QUALITY_CHECK_DB')
+    if not db_path:
+        db_path = os.path.join(os.path.dirname(__file__), 'quality_check.db')
+    elif not os.path.isabs(db_path):
+        # If relative path, make it relative to project root
+        project_root = os.getenv('PROJECT_ROOT', os.path.dirname(__file__))
+        db_path = os.path.join(project_root, db_path)
     
     if not os.path.exists(db_path):
         print("❌ Database file does not exist.")

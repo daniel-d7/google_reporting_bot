@@ -84,8 +84,18 @@ def _extract_quality_data(db_host, db_name, db_user, db_password, db_port, sql_s
 
 def _save_to_sqlite(data):
     """Save quality check data to SQLite database, overwriting existing data for the current month"""
-    # Create SQLite database path
-    db_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'quality_check.db')
+    # Create SQLite database path from environment variable or fallback to relative path
+    from dotenv import load_dotenv
+    load_dotenv()
+    
+    db_path = os.getenv('QUALITY_CHECK_DB')
+    if not db_path:
+        # Fallback to the original relative path
+        db_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'quality_check.db')
+    elif not os.path.isabs(db_path):
+        # If relative path, make it relative to project root
+        project_root = os.getenv('PROJECT_ROOT', os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
+        db_path = os.path.join(project_root, db_path)
     
     # Add timestamp to data
     data_with_timestamp = data.copy()
@@ -104,7 +114,17 @@ def _save_to_sqlite(data):
 
 def _get_last_run_same_month(current_month):
     """Get the last quality check run for the same month"""
-    db_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'quality_check.db')
+    from dotenv import load_dotenv
+    load_dotenv()
+    
+    db_path = os.getenv('QUALITY_CHECK_DB')
+    if not db_path:
+        # Fallback to the original relative path
+        db_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'quality_check.db')
+    elif not os.path.isabs(db_path):
+        # If relative path, make it relative to project root
+        project_root = os.getenv('PROJECT_ROOT', os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
+        db_path = os.path.join(project_root, db_path)
     
     if not os.path.exists(db_path):
         return None
@@ -129,7 +149,17 @@ def _get_last_run_same_month(current_month):
 
 def _get_previous_runs(current_month):
     """Get previous quality check runs for the same month (deprecated - use _get_last_run_same_month)"""
-    db_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'quality_check.db')
+    from dotenv import load_dotenv
+    load_dotenv()
+    
+    db_path = os.getenv('QUALITY_CHECK_DB')
+    if not db_path:
+        # Fallback to the original relative path
+        db_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'quality_check.db')
+    elif not os.path.isabs(db_path):
+        # If relative path, make it relative to project root
+        project_root = os.getenv('PROJECT_ROOT', os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
+        db_path = os.path.join(project_root, db_path)
     
     if not os.path.exists(db_path):
         return pd.DataFrame()
