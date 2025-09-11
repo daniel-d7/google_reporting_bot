@@ -55,9 +55,9 @@ DB_PORT=5432
 
 # SQL Statements
 SQL_QUALITY_CHECK=select * from y4a_sso.agg_quality_check;
-SQL_STATEMENT_COUNTRY=select * from y4a_sso.agg_country_perf_mtd;
-SQL_STATEMENT_MANAGER=select * from y4a_sso.agg_manager_perf_mtd;
-SQL_STATEMENT_PRDLINE=select * from y4a_sso.agg_prdline_perf_mtd;
+SQL_STATEMENT_COUNTRY=sqlStatement;
+SQL_STATEMENT_MANAGER=sqlStatement;
+SQL_STATEMENT_PRDLINE=sqlStatement;
 
 # Webhooks
 WEBHOOK_URL=your_main_notification_webhook
