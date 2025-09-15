@@ -106,11 +106,24 @@ def _save_to_sqlite(data):
     with sqlite3.connect(db_path) as conn:
         current_month = datetime.now().strftime('%Y-%m')
         
-        # Delete existing records for the current month
-        conn.execute("DELETE FROM quality_checks WHERE month = ?", (current_month,))
-        
-        # Insert new record
-        data_with_timestamp.to_sql('quality_checks', conn, if_exists='append', index=False)
+        # First, try to create the table if it doesn't exist by inserting data
+        # This handles the case where the table doesn't exist yet
+        try:
+            # Check if table exists first
+            cursor = conn.cursor()
+            cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='quality_checks';")
+            table_exists = cursor.fetchone() is not None
+            
+            if table_exists:
+                # Delete existing records for the current month
+                conn.execute("DELETE FROM quality_checks WHERE month = ?", (current_month,))
+            
+            # Insert new record (this will create the table if it doesn't exist)
+            data_with_timestamp.to_sql('quality_checks', conn, if_exists='append', index=False)
+            
+        except Exception as e:
+            print(f"Error saving to SQLite: {e}")
+            raise
 
 def _get_last_run_same_month(current_month):
     """Get the last quality check run for the same month"""
@@ -130,21 +143,34 @@ def _get_last_run_same_month(current_month):
         return None
     
     with sqlite3.connect(db_path) as conn:
-        query = """
-        SELECT * FROM quality_checks 
-        WHERE month = ? 
-        ORDER BY timestamp DESC
-        LIMIT 1
-        """
         try:
+            # First check if table exists
+            cursor = conn.cursor()
+            cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='quality_checks';")
+            table_exists = cursor.fetchone() is not None
+            
+            if not table_exists:
+                return None
+            
+            # Query for the last run in the same month
+            query = """
+            SELECT * FROM quality_checks 
+            WHERE month = ? 
+            ORDER BY timestamp DESC
+            LIMIT 1
+            """
             result = conn.execute(query, (current_month,)).fetchone()
             if result:
                 # Get column names
                 columns = [description[0] for description in conn.execute(query, (current_month,)).description]
                 return dict(zip(columns, result))
             return None
-        except sqlite3.OperationalError:
-            # Table doesn't exist yet
+        except sqlite3.OperationalError as e:
+            # Handle any database operation errors gracefully
+            print(f"Database operation error: {e}")
+            return None
+        except Exception as e:
+            print(f"Unexpected error accessing database: {e}")
             return None
 
 def _get_previous_runs(current_month):
