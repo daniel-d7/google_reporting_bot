@@ -37,6 +37,11 @@ def upload_image(image_path, api_key):
         if result.get("status_code") == 200 and result.get("success", {}).get("code") == 200:
             # Get the image URL from Chevereto response
             image_url = result["image"]["url"]
+            
+            # Convert HTTP to HTTPS for better compatibility with chat platforms
+            if image_url.startswith("http://"):
+                image_url = image_url.replace("http://", "https://")
+            
             return image_url
         else:
             error_message = result.get("error", {}).get("message", "Unknown error")

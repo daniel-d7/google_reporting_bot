@@ -6,6 +6,11 @@ import json
 import os
 from datetime import datetime
 from dotenv import load_dotenv
+from sqlalchemy import create_engine
+import warnings
+
+# Suppress the pandas SQLAlchemy warning since we're now using it properly
+warnings.filterwarnings('ignore', message='pandas only supports SQLAlchemy connectable')
 
 def check_data_quality():
     """
@@ -61,26 +66,19 @@ def check_data_quality():
     return quality_passed, current_nmv, last_nmv
 
 def _extract_quality_data(db_host, db_name, db_user, db_password, db_port, sql_statement):
-    """Extract quality check data from PostgreSQL"""
-    connection = None
+    """Extract quality check data from PostgreSQL using SQLAlchemy"""
     try:
-        connection = psycopg2.connect(
-            host=db_host,
-            database=db_name,
-            user=db_user,
-            password=db_password,
-            port=db_port
-        )
+        # Create SQLAlchemy engine
+        connection_string = f"postgresql://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}"
+        engine = create_engine(connection_string)
         
-        df = pd.read_sql_query(sql_statement, connection)
+        # Use the engine with pandas - this eliminates the warning
+        df = pd.read_sql_query(sql_statement, engine)
         return df
         
     except Exception as error:
         print(f"Error extracting quality data: {error}")
         return None
-    finally:
-        if connection:
-            connection.close()
 
 def _save_to_sqlite(data):
     """Save quality check data to SQLite database, overwriting existing data for the current month"""
