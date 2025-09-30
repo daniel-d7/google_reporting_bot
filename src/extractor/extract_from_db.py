@@ -1,32 +1,40 @@
-import psycopg2
+"""Database data extraction module."""
 import pandas as pd
-from dotenv import load_dotenv
-import os
+from typing import Optional
 from sqlalchemy import create_engine
-import warnings
 
-# Suppress the pandas SQLAlchemy warning since we're now using it properly
-warnings.filterwarnings('ignore', message='pandas only supports SQLAlchemy connectable')
+from ..config import get_settings
+from ..utils import get_logger
 
-def extract_from_db(sqlStatement):
-    """Extract data from PostgreSQL database using SQLAlchemy"""
-    load_dotenv()
-    db_host = os.getenv('DB_HOST')
-    db_name = os.getenv('DB_NAME')
-    db_user = os.getenv('DB_USER')
-    db_password = os.getenv('DB_PASSWORD')
-    db_port = os.getenv('DB_PORT', '5432')
 
+logger = get_logger(__name__)
+
+
+def extract_from_db(sqlStatement: str) -> Optional[pd.DataFrame]:
+    """
+    Extract data from PostgreSQL database using SQLAlchemy.
+    
+    Args:
+        sqlStatement: SQL query to execute
+        
+    Returns:
+        DataFrame with query results or None if error occurs
+    """
+    settings = get_settings()
+    
     try:
         # Create SQLAlchemy engine
-        connection_string = f"postgresql://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}"
-        engine = create_engine(connection_string)
+        engine = create_engine(settings.db_connection_string)
         
-        # Use the engine with pandas - this eliminates the warning
+        # Use the engine with pandas
         df = pd.read_sql_query(sqlStatement, engine)
-        print("Data extracted successfully.")
+        logger.info(f"Data extracted successfully: {len(df)} rows")
+        
+        # Cleanup
+        engine.dispose()
+        
         return df
         
     except Exception as error:
-        print(f"Error connecting: {error}")
+        logger.error(f"Error extracting data from database: {error}")
         return None

@@ -1,17 +1,26 @@
+"""Image upload module for Chevereto image hosting service."""
 import base64
 import requests
 
+from ..utils import get_logger
 
-def upload_image(image_path, api_key):
+
+logger = get_logger(__name__)
+
+
+def upload_image(image_path: str, api_key: str) -> str:
     """
-    Upload image to Chevereto image hosting service
+    Upload image to Chevereto image hosting service.
     
     Args:
-        image_path (str): Path to the image file
-        api_key (str): Chevereto API key (should start with 'chv_')
+        image_path: Path to the image file
+        api_key: Chevereto API key (should start with 'chv_')
     
     Returns:
-        str: URL of the uploaded image
+        URL of the uploaded image
+        
+    Raises:
+        Exception: If upload fails
     """
     try:
         # Chevereto API endpoint
@@ -42,12 +51,15 @@ def upload_image(image_path, api_key):
             if image_url.startswith("http://"):
                 image_url = image_url.replace("http://", "https://")
             
+            logger.info(f"Image uploaded successfully to {image_url}")
             return image_url
         else:
             error_message = result.get("error", {}).get("message", "Unknown error")
             raise Exception(f"Chevereto upload failed: {error_message}")
             
     except requests.exceptions.RequestException as e:
+        logger.error(f"Network error during image upload: {e}")
         raise Exception(f"Network error during image upload: {str(e)}")
     except Exception as e:
+        logger.error(f"Image upload error: {e}")
         raise Exception(f"Image upload error: {str(e)}")
