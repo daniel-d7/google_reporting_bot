@@ -1,37 +1,37 @@
-"""Data quality check module."""
 import sqlite3
 import pandas as pd
+import psycopg2
 import requests
 import json
 import os
 from datetime import datetime
-from typing import Optional, Tuple, Dict, Any
+from dotenv import load_dotenv
 from sqlalchemy import create_engine
+import warnings
 
-from ..config import get_settings
-from ..utils import get_logger
+# Suppress the pandas SQLAlchemy warning since we're now using it properly
+warnings.filterwarnings('ignore', message='pandas only supports SQLAlchemy connectable')
 
-
-logger = get_logger(__name__)
-
-
-def check_data_quality() -> Tuple[bool, float, Optional[float]]:
+def check_data_quality():
     """
     Check data quality by comparing current NMV with the last run in the same month.
-    
-    Returns:
-        Tuple of (quality_passed, current_nmv, last_nmv)
-        
-    Raises:
-        Exception: If quality check fails
+    Returns True if quality check passes, False otherwise.
     """
-    settings = get_settings()
+    load_dotenv()
     
-    if not settings.sql_quality_check:
+    # Get environment variables
+    db_host = os.getenv('DB_HOST')
+    db_name = os.getenv('DB_NAME')
+    db_user = os.getenv('DB_USER')
+    db_password = os.getenv('DB_PASSWORD')
+    db_port = os.getenv('DB_PORT', '5432')
+    sql_quality_check = os.getenv('SQL_QUALITY_CHECK')
+    
+    if not sql_quality_check:
         raise ValueError("SQL_QUALITY_CHECK environment variable is not set")
     
     # Extract current data from PostgreSQL
-    current_data = _extract_quality_data(settings.sql_quality_check)
+    current_data = _extract_quality_data(db_host, db_name, db_user, db_password, db_port, sql_quality_check)
     
     if current_data is None or current_data.empty:
         raise Exception("Failed to extract quality check data from database")
@@ -59,53 +59,41 @@ def check_data_quality() -> Tuple[bool, float, Optional[float]]:
         # Only fail if current <= last AND it's NOT the first day of the month
         if current_nmv <= last_nmv and not is_first_day_of_month:
             quality_passed = False
-            logger.warning(
-                f"Quality check failed: Current NMV ({current_nmv:,.0f}) "
-                f"<= Last NMV ({last_nmv:,.0f}) on day {current_date.day}"
-            )
-    else:
-        logger.info("No previous run found for current month - quality check passed")
     
     # Always save the current run data to SQLite (overwrite the last run)
     _save_to_sqlite(current_data)
     
     return quality_passed, current_nmv, last_nmv
 
-
-def _extract_quality_data(sql_statement: str) -> Optional[pd.DataFrame]:
-    """
-    Extract quality check data from PostgreSQL using SQLAlchemy.
-    
-    Args:
-        sql_statement: SQL query to execute
-        
-    Returns:
-        DataFrame with quality data or None if error
-    """
-    settings = get_settings()
-    
+def _extract_quality_data(db_host, db_name, db_user, db_password, db_port, sql_statement):
+    """Extract quality check data from PostgreSQL using SQLAlchemy"""
     try:
-        engine = create_engine(settings.db_connection_string)
-        df = pd.read_sql_query(sql_statement, engine)
-        engine.dispose()
+        # Create SQLAlchemy engine
+        connection_string = f"postgresql://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}"
+        engine = create_engine(connection_string)
         
-        logger.info(f"Extracted quality data: {len(df)} rows")
+        # Use the engine with pandas - this eliminates the warning
+        df = pd.read_sql_query(sql_statement, engine)
         return df
         
     except Exception as error:
-        logger.error(f"Error extracting quality data: {error}")
+        print(f"Error extracting quality data: {error}")
         return None
 
-
-def _save_to_sqlite(data: pd.DataFrame) -> None:
-    """
-    Save quality check data to SQLite database, overwriting existing data for the current month.
+def _save_to_sqlite(data):
+    """Save quality check data to SQLite database, overwriting existing data for the current month"""
+    # Create SQLite database path from environment variable or fallback to relative path
+    from dotenv import load_dotenv
+    load_dotenv()
     
-    Args:
-        data: DataFrame to save
-    """
-    settings = get_settings()
-    db_path = settings.quality_check_db_path
+    db_path = os.getenv('QUALITY_CHECK_DB')
+    if not db_path:
+        # Fallback to the original relative path
+        db_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'quality_check.db')
+    elif not os.path.isabs(db_path):
+        # If relative path, make it relative to project root
+        project_root = os.getenv('PROJECT_ROOT', os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
+        db_path = os.path.join(project_root, db_path)
     
     # Add timestamp to data
     data_with_timestamp = data.copy()
@@ -113,59 +101,53 @@ def _save_to_sqlite(data: pd.DataFrame) -> None:
     data_with_timestamp['month'] = datetime.now().strftime('%Y-%m')
     
     # Save to SQLite - overwrite existing data for the current month
-    try:
-        with sqlite3.connect(db_path) as conn:
-            current_month = datetime.now().strftime('%Y-%m')
-            
+    with sqlite3.connect(db_path) as conn:
+        current_month = datetime.now().strftime('%Y-%m')
+        
+        # First, try to create the table if it doesn't exist by inserting data
+        # This handles the case where the table doesn't exist yet
+        try:
             # Check if table exists first
             cursor = conn.cursor()
-            cursor.execute(
-                "SELECT name FROM sqlite_master WHERE type='table' AND name='quality_checks';"
-            )
+            cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='quality_checks';")
             table_exists = cursor.fetchone() is not None
             
             if table_exists:
                 # Delete existing records for the current month
                 conn.execute("DELETE FROM quality_checks WHERE month = ?", (current_month,))
-                logger.info(f"Deleted existing quality check records for {current_month}")
             
             # Insert new record (this will create the table if it doesn't exist)
             data_with_timestamp.to_sql('quality_checks', conn, if_exists='append', index=False)
-            logger.info(f"Saved quality check data for {current_month}")
             
-    except Exception as e:
-        logger.error(f"Error saving to SQLite: {e}")
-        raise
+        except Exception as e:
+            print(f"Error saving to SQLite: {e}")
+            raise
 
-
-def _get_last_run_same_month(current_month: str) -> Optional[Dict[str, Any]]:
-    """
-    Get the last quality check run for the same month.
+def _get_last_run_same_month(current_month):
+    """Get the last quality check run for the same month"""
+    from dotenv import load_dotenv
+    load_dotenv()
     
-    Args:
-        current_month: Month string in format 'YYYY-MM'
-        
-    Returns:
-        Dictionary with last run data or None if not found
-    """
-    settings = get_settings()
-    db_path = settings.quality_check_db_path
+    db_path = os.getenv('QUALITY_CHECK_DB')
+    if not db_path:
+        # Fallback to the original relative path
+        db_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'quality_check.db')
+    elif not os.path.isabs(db_path):
+        # If relative path, make it relative to project root
+        project_root = os.getenv('PROJECT_ROOT', os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
+        db_path = os.path.join(project_root, db_path)
     
     if not os.path.exists(db_path):
-        logger.info(f"Quality check database not found: {db_path}")
         return None
     
-    try:
-        with sqlite3.connect(db_path) as conn:
+    with sqlite3.connect(db_path) as conn:
+        try:
             # First check if table exists
             cursor = conn.cursor()
-            cursor.execute(
-                "SELECT name FROM sqlite_master WHERE type='table' AND name='quality_checks';"
-            )
+            cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='quality_checks';")
             table_exists = cursor.fetchone() is not None
             
             if not table_exists:
-                logger.info("Quality checks table does not exist yet")
                 return None
             
             # Query for the last run in the same month
@@ -176,63 +158,70 @@ def _get_last_run_same_month(current_month: str) -> Optional[Dict[str, Any]]:
             LIMIT 1
             """
             result = conn.execute(query, (current_month,)).fetchone()
-            
             if result:
                 # Get column names
-                columns = [description[0] for description in 
-                          conn.execute(query, (current_month,)).description]
-                last_run = dict(zip(columns, result))
-                logger.info(f"Found last run for {current_month}: NMV = {last_run.get('nmv', 'N/A')}")
-                return last_run
-            
-            logger.info(f"No previous run found for {current_month}")
+                columns = [description[0] for description in conn.execute(query, (current_month,)).description]
+                return dict(zip(columns, result))
             return None
-            
-    except sqlite3.OperationalError as e:
-        logger.error(f"Database operation error: {e}")
-        return None
-    except Exception as e:
-        logger.error(f"Unexpected error accessing database: {e}")
-        return None
+        except sqlite3.OperationalError as e:
+            # Handle any database operation errors gracefully
+            print(f"Database operation error: {e}")
+            return None
+        except Exception as e:
+            print(f"Unexpected error accessing database: {e}")
+            return None
 
+def _get_previous_runs(current_month):
+    """Get previous quality check runs for the same month (deprecated - use _get_last_run_same_month)"""
+    from dotenv import load_dotenv
+    load_dotenv()
+    
+    db_path = os.getenv('QUALITY_CHECK_DB')
+    if not db_path:
+        # Fallback to the original relative path
+        db_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'quality_check.db')
+    elif not os.path.isabs(db_path):
+        # If relative path, make it relative to project root
+        project_root = os.getenv('PROJECT_ROOT', os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
+        db_path = os.path.join(project_root, db_path)
+    
+    if not os.path.exists(db_path):
+        return pd.DataFrame()
+    
+    with sqlite3.connect(db_path) as conn:
+        query = """
+        SELECT * FROM quality_checks 
+        WHERE month = ? 
+        ORDER BY timestamp
+        """
+        try:
+            return pd.read_sql_query(query, conn, params=(current_month,))
+        except:
+            # Table doesn't exist yet
+            return pd.DataFrame()
 
-def send_error_message(current_nmv: float, latest_nmv: float) -> str:
-    """
-    Send error message to webhook.
+def send_error_message(current_nmv, latest_nmv):
+    """Send error message to WEBHOOK_URL_ERROR"""
+    load_dotenv()
+    webhook_url_error = os.getenv('WEBHOOK_URL_ERROR')
     
-    Args:
-        current_nmv: Current NMV value
-        latest_nmv: Latest NMV value
-        
-    Returns:
-        Success message
-        
-    Raises:
-        Exception: If notification fails
-    """
-    settings = get_settings()
-    
-    if not settings.webhook_url_error:
+    if not webhook_url_error:
         raise ValueError("WEBHOOK_URL_ERROR environment variable is not set")
     
     current_date = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     
     # Handle case where values might be 0 (generic error)
     if current_nmv == 0 and latest_nmv == 0:
-        error_text = (
-            f"🔴 Data quality check failed on {current_date}\n\n"
-            f"❌ An error occurred during data quality validation.\n"
-            f"Please check the system logs and investigate the issue."
-        )
+        error_text = f"🔴 Data quality check failed on {current_date}\n\n" \
+                    f"❌ An error occurred during data quality validation.\n" \
+                    f"Please check the system logs and investigate the issue."
     else:
-        error_text = (
-            f"🔴 Data quality check failed on {current_date}\n\n"
-            f"Current NMV: {current_nmv:,.0f}\n"
-            f"Last Run NMV: {latest_nmv:,.0f}\n\n"
-            f"❌ Current NMV is not greater than the last run in the same month.\n"
-            f"Note: This check is bypassed on the first day of the month.\n"
-            f"Please investigate the data quality issue."
-        )
+        error_text = f"🔴 Data quality check failed on {current_date}\n\n" \
+                    f"Current NMV: {current_nmv:,.0f}\n" \
+                    f"Last Run NMV: {latest_nmv:,.0f}\n\n" \
+                    f"❌ Current NMV is not greater than the last run in the same month.\n" \
+                    f"Note: This check is bypassed on the first day of the month.\n" \
+                    f"Please investigate the data quality issue."
     
     message = {
         "cardsV2": [
@@ -258,32 +247,19 @@ def send_error_message(current_nmv: float, latest_nmv: float) -> str:
     }
     
     headers = {'Content-Type': 'application/json; charset=UTF-8'}
-    response = requests.post(
-        settings.webhook_url_error,
-        headers=headers,
-        data=json.dumps(message)
-    )
+    response = requests.post(webhook_url_error, headers=headers, data=json.dumps(message))
     
     if response.status_code != 200:
         raise Exception(f'Error notification failed: {response.text}')
     
-    logger.info("Error notification sent successfully")
     return "Successfully sent error notification"
 
-
-def send_success_message() -> str:
-    """
-    Send success message to webhook.
+def send_success_message():
+    """Send success message to WEBHOOK_URL_LOGGING"""
+    load_dotenv()
+    webhook_url_logging = os.getenv('WEBHOOK_URL_LOGGING')
     
-    Returns:
-        Success message
-        
-    Raises:
-        Exception: If notification fails
-    """
-    settings = get_settings()
-    
-    if not settings.webhook_url_logging:
+    if not webhook_url_logging:
         raise ValueError("WEBHOOK_URL_LOGGING environment variable is not set")
     
     current_date = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
@@ -300,13 +276,11 @@ def send_success_message() -> str:
                             "widgets": [
                                 {
                                     "textParagraph": {
-                                        "text": (
-                                            f"🟢 Daily report generation completed successfully on {current_date}\n\n"
-                                            f"✅ Data quality check: PASSED\n"
-                                            f"✅ Report generation: COMPLETED\n"
-                                            f"✅ Notifications sent: SUCCESS\n\n"
-                                            f"All processes completed without errors."
-                                        )
+                                        "text": f"🟢 Daily report generation completed successfully on {current_date}\n\n"
+                                               f"✅ Data quality check: PASSED\n"
+                                               f"✅ Report generation: COMPLETED\n"
+                                               f"✅ Notifications sent: SUCCESS\n\n"
+                                               f"All processes completed without errors."
                                     }
                                 }
                             ]
@@ -318,14 +292,9 @@ def send_success_message() -> str:
     }
     
     headers = {'Content-Type': 'application/json; charset=UTF-8'}
-    response = requests.post(
-        settings.webhook_url_logging,
-        headers=headers,
-        data=json.dumps(message)
-    )
+    response = requests.post(webhook_url_logging, headers=headers, data=json.dumps(message))
     
     if response.status_code != 200:
         raise Exception(f'Success notification failed: {response.text}')
     
-    logger.info("Success notification sent successfully")
     return "Successfully sent success notification"

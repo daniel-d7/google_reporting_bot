@@ -1,369 +1,266 @@
-# Google Reporting Bot
+# 📊 Google Reporting Bot
 
-A Python bot that generates daily business reports with automated data quality checks and Google Chat notifications.
+An automated Python bot that generates daily business intelligence reports with integrated data quality validation and real-time notifications. The bot extracts data from PostgreSQL databases and Google Sheets, performs quality checks, generates visual reports, and delivers them through Google Chat.
 
-## 🌟 Features
+## ✨ Key Features
 
-- **Data Quality Check**: Validates data integrity before report generation
-- **Automated Report Generation**: Creates visual reports for Country and Manager performance
-- **Google Chat Integration**: Sends notifications with success/error status
-- **SQLite Logging**: Stores quality check history for comparison
-- **Image Generation**: Creates charts and uploads to Google Drive and ImgBB
-- **Service-Oriented Architecture**: Clean, modular, and maintainable code structure
-- **Comprehensive Logging**: Detailed logging for debugging and monitoring
+### 🔍 **Data Quality Assurance**
+- Automated data integrity validation before report generation
+- Month-over-month NMV (Net Merchandise Value) comparison
+- SQLite-based quality check history and logging
+- Configurable validation rules with first-day-of-month exceptions
 
-## 📁 Project Structure
+### 📈 **Intelligent Report Generation**
+- Multi-dimensional performance reports (Country, Manager, Product Line)
+- Automated chart generation with matplotlib
+- Pivot table processing and KPI calculations
+- Achievement vs. target analysis
 
-```
-google_reporting_bot/
-├── main.py                      # Main entry point
-├── requirements.txt             # Python dependencies
-├── .env.example                # Environment variables template
-├── quality_check.db            # SQLite database for quality checks
-├── output/                     # Generated report images (temporary)
-├── token/                      # Google API credentials
-│   ├── credentials.json
-│   ├── personal_credentials.json
-│   └── token.json
-└── src/                        # Source code
-    ├── config/                 # Configuration management
-    │   ├── __init__.py
-    │   └── settings.py         # Settings class with validation
-    ├── services/               # Business logic services
-    │   ├── __init__.py
-    │   ├── data_service.py     # Data extraction
-    │   ├── report_service.py   # Report generation
-    │   ├── notification_service.py  # Notifications
-    │   └── quality_service.py  # Quality checks
-    ├── extractor/              # Data extraction modules
-    │   ├── __init__.py
-    │   ├── extract_from_db.py  # Database extraction
-    │   └── extract_from_gsheet.py  # Google Sheets
-    ├── processor/              # Data processing
-    │   ├── __init__.py
-    │   └── processor.py        # Data formatting
-    ├── img/                    # Image handling
-    │   ├── __init__.py
-    │   ├── img_gen.py          # Image generation
-    │   ├── img_upload.py       # ImgBB upload
-    │   └── img_upload_gdrive.py  # Google Drive upload
-    ├── message/                # Messaging
-    │   ├── __init__.py
-    │   └── send_message.py     # Google Chat messages
-    ├── quality_check/          # Quality validation
-    │   ├── __init__.py
-    │   └── quality_check.py    # Quality check logic
-    └── utils/                  # Utilities
-        ├── __init__.py
-        └── logger.py           # Logging configuration
-```
+### 🔗 **Multi-Platform Integration**
+- **Google Chat**: Real-time success/error notifications via webhooks  
+- **Google Drive**: Automated image upload and sharing
+- **Google Sheets**: Bidirectional data synchronization
+- **ImgBB**: Alternative image hosting service
 
-## 🏗️ Architecture
-
-### Service Layer
-The application uses a service-oriented architecture with the following services:
-
-- **DataService**: Handles all database interactions and data extraction
-- **ReportService**: Manages report generation, formatting, and image creation
-- **NotificationService**: Sends notifications to Google Chat webhooks
-- **QualityService**: Performs data quality validation and sends status notifications
-
-### Configuration Management
-- Centralized configuration in `src/config/settings.py`
-- Environment variable validation on startup
-- Path resolution for cross-platform compatibility
-
-### Logging
-- Structured logging throughout the application
-- Log levels: INFO, WARNING, ERROR
-- Console output with timestamps
-
-## 📋 Prerequisites
-
-- Python 3.8+
-- PostgreSQL database
-- Google Cloud Project with:
-  - Google Sheets API enabled
-  - Google Drive API enabled
-  - Service account credentials
-- ImgBB API account
-- Google Chat webhooks
-
-## 🚀 Installation
-
-1. **Clone the repository**
-```bash
-git clone <repository-url>
-cd google_reporting_bot
-```
-
-2. **Create virtual environment**
-```bash
-python -m venv venv
-# Windows
-venv\Scripts\activate
-# Linux/Mac
-source venv/bin/activate
-```
-
-3. **Install dependencies**
-```bash
-pip install -r requirements.txt
-```
-
-4. **Configure environment variables**
-```bash
-# Copy the example file
-cp .env.example .env
-
-# Edit .env with your configurations
-```
-
-5. **Set up Google credentials**
-- Place your Google service account credentials in `token/credentials.json`
-- Place your personal OAuth credentials in `token/personal_credentials.json`
+### 🗄️ **Data Sources**
+- PostgreSQL database connectivity
+- Google Sheets integration
+- Local SQLite quality check database
 
 ## ⚙️ Configuration
 
 ### Environment Variables
 
-Create a `.env` file with the following variables:
+Create a `.env` file in the project root with the following configuration:
 
-#### Database Configuration
 ```properties
-DB_HOST=your_database_host
+# 🗄️ Database Connection
+DB_HOST=your_postgresql_host
 DB_NAME=your_database_name
 DB_USER=your_database_user
 DB_PASSWORD=your_database_password
 DB_PORT=5432
-```
 
-#### SQL Statements
-```properties
-SQL_STATEMENT_COUNTRY=SELECT ... FROM ... WHERE ...
-SQL_STATEMENT_MANAGER=SELECT ... FROM ... WHERE ...
-SQL_STATEMENT_PRDLINE=SELECT ... FROM ... WHERE ...
-SQL_QUALITY_CHECK=SELECT nmv FROM ... WHERE ...
-```
-
-#### Google Services
-```properties
-GOOGLE_SHEET_ID=your_sheet_id
-GDRIVE_FOLDER_ID=your_folder_id
-CREDENTIALS_JSON=token/credentials.json
-PERSONAL_CREDENTIALS_JSON=token/personal_credentials.json
-TOKEN_JSON=token/token.json
-SHEET_URL=https://docs.google.com/spreadsheets/d/...
-```
-
-#### Image Hosting
-```properties
-IMGBB_API_KEY=your_imgbb_api_key
-```
-
-#### Webhook URLs
-```properties
-WEBHOOK_URL_SSO=https://chat.googleapis.com/v1/spaces/.../messages?key=...
-WEBHOOK_URL_CPI=https://chat.googleapis.com/v1/spaces/.../messages?key=...
-WEBHOOK_URL_ERROR=https://chat.googleapis.com/v1/spaces/.../messages?key=...
-WEBHOOK_URL_LOGGING=https://chat.googleapis.com/v1/spaces/.../messages?key=...
-```
-
-## 🎯 Usage
-
-### Run the bot
-```bash
-python main.py
-```
-
-### Expected Output
-```
-================================================================================
-Starting Google Reporting Bot
-================================================================================
-2025-09-30 10:00:00 - google_reporting_bot - INFO - Configuration loaded and validated successfully
---------------------------------------------------------------------------------
-STEP 1: Data Quality Check
---------------------------------------------------------------------------------
-2025-09-30 10:00:01 - google_reporting_bot - INFO - Starting data quality check...
-2025-09-30 10:00:02 - google_reporting_bot - INFO - Data quality check passed: Current NMV (1,234,567)
---------------------------------------------------------------------------------
-STEP 2: Extract Data from Database
---------------------------------------------------------------------------------
-...
-```
-
-## 📊 Data Quality Check Process
-
-The bot includes a comprehensive data quality check that:
-
-1. **Executes Quality Check Query**: Runs `SQL_QUALITY_CHECK` statement from `.env`
-2. **Compares with Last Run**: Checks current NMV against the last run in the same month
-3. **First Day Exception**: Allows NMV ≤ last run on the first day of the month
-4. **Overwrites Last Run**: Always saves current run as the new "last run" for the month
-5. **Error Handling**: Sends error notifications if quality check fails
-6. **Success Notification**: Sends completion notification when all processes succeed
-
-### Quality Check Logic
-
-**Pass Conditions:**
-- No previous run in the current month (first run)
-- Current NMV > Last run NMV
-- Current NMV ≤ Last run NMV BUT it's the first day of the month
-
-**Fail Conditions:**
-- Current NMV ≤ Last run NMV AND it's NOT the first day of the month
-
-### Quality Check Flow
-
-```
-Start → Get Current NMV → Get Last Run (same month)
-        ↓
-Is First Day OR Current > Last? → No → Send Error → Exit
-        ↓ Yes
-Save Current as Last Run → Generate Reports → Send Success
-```
-
-## 🔧 Development
-
-### Code Style
-- Follow PEP 8 style guidelines
-- Use type hints for function parameters and return values
-- Add docstrings to all functions and classes
-- Keep functions focused and single-purpose
-
-### Adding New Features
-
-1. **Add a new service**: Create a new file in `src/services/`
-2. **Add configuration**: Update `src/config/settings.py`
-3. **Update main.py**: Import and use the new service
-4. **Add tests**: (Future enhancement)
-
-### Logging
-
-Use the logger in your modules:
-```python
-from ..utils import get_logger
-
-logger = get_logger(__name__)
-
-logger.info("Information message")
-logger.warning("Warning message")
-logger.error("Error message")
-```
-
-## 🐛 Troubleshooting
-
-### Common Issues
-
-**Missing environment variables**
-```
-Error: Missing required environment variables: GOOGLE_SHEET_ID, IMGBB_API_KEY
-Solution: Check your .env file and ensure all required variables are set
-```
-
-**Database connection failed**
-```
-Error: Error extracting data from database
-Solution: Verify database credentials and network connectivity
-```
-
-**Google API authentication failed**
-```
-Error: Google Drive upload failed
-Solution: Check your credentials.json and ensure APIs are enabled
-```
-
-## 📝 License
-
-[Add your license here]
-
-## 👥 Contributing
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
-## 📧 Contact
-
-[Add your contact information here]
-
-## 🙏 Acknowledgments
-
-- Google Cloud Platform for APIs
-- ImgBB for image hosting
-- The Python community
-
----
-
-**Note**: This is a refactored version with improved architecture, better error handling, comprehensive logging, and service-oriented design for maintainability and scalability.
-
-DB_NAME=your_db_name
-DB_USER=your_db_user
-DB_PASSWORD=your_db_password
-DB_PORT=5432
-
-# SQL Statements
+# 📊 SQL Query Statements
 SQL_QUALITY_CHECK=select * from y4a_sso.agg_quality_check;
 SQL_STATEMENT_COUNTRY=select * from y4a_sso.agg_country_perf_mtd;
 SQL_STATEMENT_MANAGER=select * from y4a_sso.agg_manager_perf_mtd;
 SQL_STATEMENT_PRDLINE=select * from y4a_sso.agg_prdline_perf_mtd;
 
-# Webhooks
-WEBHOOK_URL=your_main_notification_webhook
-WEBHOOK_URL_LOGGING=your_success_notification_webhook
-WEBHOOK_URL_ERROR=your_error_notification_webhook
+# 🔔 Google Chat Webhooks
+WEBHOOK_URL=your_main_notification_webhook_url
+WEBHOOK_URL_LOGGING=your_success_notification_webhook_url
+WEBHOOK_URL_ERROR=your_error_notification_webhook_url
 
-# API Keys
+# 🔑 API Keys
 IMGBB_API_KEY=your_imgbb_api_key
 
-# Google Sheets
+# 📋 Google Sheets Integration
 SHEET_URL=your_google_sheet_url
+GOOGLE_SHEET_ID=your_google_sheet_id
+
+# 📁 Google Drive Configuration
+GDRIVE_FOLDER_ID=your_google_drive_folder_id
+
+# 📂 File Paths (Optional - uses defaults if not specified)
+PROJECT_ROOT=/path/to/project
+OUTPUT_DIR=output
+CREDENTIALS_JSON=token/credentials.json
+PERSONAL_CREDENTIALS_JSON=token/personal_credentials.json
+TOKEN_JSON=token/token.json
 ```
 
-## Installation
+### Google Service Account Setup
 
-1. Clone the repository
-2. Install dependencies: `pip install -r requirements.txt`
-3. Configure `.env` file with your credentials
-4. Place Google service account credentials in `token/` directory
-5. Run: `python main.py`
+1. **Create a Google Cloud Project**
+   - Go to [Google Cloud Console](https://console.cloud.google.com/)
+   - Create a new project or select an existing one
 
-## Testing
+2. **Enable Required APIs**
+   - Google Sheets API
+   - Google Drive API
+   - Gmail API (if email notifications are needed)
 
-Run the test script to verify quality check functionality:
+3. **Create Service Account**
+   - Go to IAM & Admin > Service Accounts
+   - Create a new service account
+   - Download the JSON credentials file
+
+4. **Configure Credentials**
+   - Place the JSON file in `token/credentials.json`
+   - For personal Google account access, place OAuth credentials in `token/personal_credentials.json`
+
+## 🚀 Installation & Setup
+
+### Prerequisites
+- Python 3.8+ 
+- PostgreSQL database access
+- Google Cloud Platform account
+- Google Chat workspace (for notifications)
+
+### Quick Start
+
+1. **Clone the Repository**
+   ```bash
+   git clone https://github.com/daniel-d7/google_reporting_bot.git
+   cd google_reporting_bot
+   ```
+
+2. **Set Up Python Environment**
+   ```bash
+   # Create virtual environment (recommended)
+   python -m venv venv
+   
+   # Activate virtual environment
+   # Windows:
+   venv\Scripts\activate
+   # macOS/Linux:
+   source venv/bin/activate
+   
+   # Install dependencies
+   pip install -r requirements.txt
+   ```
+
+3. **Configure Environment**
+   ```bash
+   # Copy example environment file
+   cp .env.example .env
+   
+   # Edit .env with your configuration
+   # Use your preferred text editor
+   ```
+
+4. **Set Up Google Credentials**
+   ```bash
+   # Create token directory
+   mkdir token
+   
+   # Place your Google service account JSON file
+   # token/credentials.json
+   ```
+
+5. **Run the Application**
+   ```bash
+   python main.py
+   ```
+
+## 🧪 Testing & Validation
+
+### Quality Check Testing
+Verify the data quality validation system:
 ```bash
 python test_quality_check.py
 ```
 
-## Debugging
-
-### Quality Check Database Debug
-View the contents of the quality check database:
-```bash
-python debug_quality_db.py
-```
-
-Clear all quality check records:
-```bash
-python debug_quality_db.py clear
-```
-
 ### Configuration Validation
-Check if all environment variables are properly set:
+Ensure all environment variables are properly configured:
 ```bash
 python validate_config.py
 ```
 
-## File Structure
+### Database Connection Test
+Test PostgreSQL database connectivity:
+```bash
+python -c "from src.extractor.extract_from_db import test_connection; test_connection()"
+```
 
-- `main.py` - Main execution script with quality check integration
-- `src/quality_check/` - Data quality validation module
-- `src/extractor/` - Database and Google Sheets data extraction
-- `src/processor/` - Data processing and formatting
-- `src/img/` - Image generation and upload utilities
-- `src/message/` - Google Chat notification functions
-- `token/` - Google service account credentials
-- `output/` - Temporary image storage
+## 🐛 Debugging & Troubleshooting
+
+### Quality Check Database Debug
+
+**View quality check history:**
+```bash
+python debug_quality_db.py
+```
+
+**Clear all quality check records:**
+```bash
+python debug_quality_db.py clear
+```
+
+### Common Issues
+
+| Issue | Symptom | Solution |
+|-------|---------|----------|
+| **Database Connection** | `psycopg2.OperationalError` | Verify DB credentials in `.env` |
+| **Google Auth** | `google.auth.exceptions.RefreshError` | Regenerate service account JSON |
+| **Webhook Failure** | Notifications not sent | Check webhook URLs and permissions |
+| **Image Upload** | Upload failures | Verify API keys and folder permissions |
+
+### Logging
+
+The bot generates detailed logs for troubleshooting:
+- Quality check results are stored in `quality_check.db`
+- Runtime logs are output to console
+- Error notifications are sent via configured webhooks
+
+## 📁 Project Structure
+
+```
+google_reporting_bot/
+├── 📄 main.py                    # Main execution script
+├── 📋 requirements.txt           # Python dependencies
+├── 🗃️ quality_check.db          # SQLite quality check database
+├── 📖 README.md                  # This documentation
+├── 📂 src/                       # Source code modules
+│   ├── 🔍 quality_check/        # Data validation system
+│   │   ├── __init__.py
+│   │   └── quality_check.py
+│   ├── 📊 extractor/             # Data extraction utilities
+│   │   ├── __init__.py
+│   │   ├── extract_from_db.py
+│   │   └── extract_from_gsheet.py
+│   ├── ⚙️ processor/             # Data processing engine
+│   │   ├── __init__.py
+│   │   └── processor.py
+│   ├── 🖼️ img/                   # Image generation & upload
+│   │   ├── __init__.py
+│   │   ├── img_gen.py
+│   │   ├── img_upload.py
+│   │   └── img_upload_gdrive.py
+│   └── 💬 message/               # Notification system
+│       ├── __init__.py
+│       └── send_message.py
+├── 🔐 token/                     # Google service credentials
+│   ├── credentials.json
+│   ├── personal_credentials.json
+│   └── token.json
+└── 📁 output/                    # Temporary image storage
+```
+
+### Module Responsibilities
+
+| Module | Purpose | Key Functions |
+|--------|---------|---------------|
+| `quality_check` | Data validation and integrity checks | `check_data_quality()`, `send_error_message()` |
+| `extractor` | Data retrieval from various sources | `extract_from_db()`, `extract_sheets_data()` |
+| `processor` | Data transformation and analysis | `pivot_kpi()`, `calc_achievement_vs_target()` |
+| `img` | Chart generation and image management | `img_gen_country()`, `upload_image_gdrive()` |
+| `message` | Communication and notifications | `send_notification()`, `send_notification_prdline()` |
+
+## 🔧 Advanced Configuration
+
+### Scheduling Automation
+
+**Using cron (Linux/macOS):**
+```bash
+# Run daily at 8:00 AM
+0 8 * * * /path/to/venv/bin/python /path/to/google_reporting_bot/main.py
+
+# Run every weekday at 9:30 AM
+30 9 * * 1-5 /path/to/venv/bin/python /path/to/google_reporting_bot/main.py
+```
+
+**Using Windows Task Scheduler:**
+1. Open Task Scheduler
+2. Create Basic Task
+3. Set trigger (daily, weekly, etc.)
+4. Set action to start `python.exe` with argument `main.py`
+5. Set start directory to project folder
+
+### Performance Optimization
+
+- **Database Connection Pooling**: Configure connection pools for high-frequency runs
+- **Caching**: Implement Redis caching for frequently accessed data
+- **Async Processing**: Use asyncio for concurrent API calls
+- **Resource Monitoring**: Monitor memory usage for large datasets
